@@ -32,12 +32,14 @@ export default function Player({
   const intervalRef = useRef(null);
   const mountedRef = useRef(true);
   const currentVideoIdRef = useRef(null);
+  const playFallbackRef = useRef(null);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       if (intervalRef.current) clearInterval(intervalRef.current);
+      if (playFallbackRef.current) clearTimeout(playFallbackRef.current);
     };
   }, []);
 
@@ -95,6 +97,24 @@ export default function Player({
     }
   };
 
+  const startPlayback = useCallback(() => {
+    if (!playerInstance.current || !window.YT) return;
+    try {
+      playerInstance.current.mute();
+      playerInstance.current.playVideo();
+      playerInstance.current.setVolume(100);
+      if (playFallbackRef.current) clearTimeout(playFallbackRef.current);
+      playFallbackRef.current = setTimeout(() => {
+        try {
+          playerInstance.current.unMute();
+          playerInstance.current.playVideo();
+        } catch {}
+      }, 800);
+    } catch {
+      // retry silently
+    }
+  }, []);
+
   useEffect(() => {
     if (!currentTrack?.id) return;
 
@@ -102,7 +122,7 @@ export default function Player({
       if (playerInstance.current && typeof playerInstance.current.loadVideoById === 'function') {
         currentVideoIdRef.current = currentTrack.id;
         playerInstance.current.loadVideoById(currentTrack.id);
-        playerInstance.current.playVideo();
+        startPlayback();
         return;
       }
 
@@ -129,11 +149,7 @@ export default function Player({
               const dur = playerInstance.current.getDuration();
               onPlayerReady(dur);
               setShowSpinner(false);
-              try {
-                playerInstance.current.mute();
-                playerInstance.current.playVideo();
-                playerInstance.current.setVolume(100);
-              } catch {}
+              startPlayback();
             },
             onStateChange: (event) => {
               if (!mountedRef.current) return;
@@ -144,6 +160,10 @@ export default function Player({
                 setShowSpinner(false);
                 try { playerInstance.current.unMute(); } catch {}
                 playerInstance.current.setVolume(100);
+                if (playFallbackRef.current) {
+                  clearTimeout(playFallbackRef.current);
+                  playFallbackRef.current = null;
+                }
               } else if (event.data === window.YT.PlayerState.PAUSED) {
                 setIsPlaying(false);
               }
@@ -164,7 +184,7 @@ export default function Player({
     } else {
       init();
     }
-  }, [currentTrack?.id, onPlayerReady, onTrackEnd, setIsPlaying]);
+  }, [currentTrack?.id, onPlayerReady, onTrackEnd, setIsPlaying, startPlayback]);
 
   useEffect(() => {
     if (!playerInstance.current || !window.YT) return;
