@@ -99,12 +99,10 @@ export default function Player({
     if (!currentTrack?.id) return;
 
     const init = () => {
-      if (currentVideoIdRef.current === currentTrack.id && playerInstance.current) {
-        try {
-          playerInstance.current.playVideo();
-          playerInstance.current.unMute();
-          playerInstance.current.setVolume(100);
-        } catch {}
+      if (playerInstance.current && typeof playerInstance.current.loadVideoById === 'function') {
+        currentVideoIdRef.current = currentTrack.id;
+        playerInstance.current.loadVideoById(currentTrack.id);
+        playerInstance.current.playVideo();
         return;
       }
 
