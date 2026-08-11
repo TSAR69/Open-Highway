@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 function formatTime(seconds) {
   if (!seconds || isNaN(seconds)) return '0:00';
@@ -32,14 +32,12 @@ export default function Player({
   const intervalRef = useRef(null);
   const mountedRef = useRef(true);
   const currentVideoIdRef = useRef(null);
-  const playFallbackRef = useRef(null);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       if (intervalRef.current) clearInterval(intervalRef.current);
-      if (playFallbackRef.current) clearTimeout(playFallbackRef.current);
     };
   }, []);
 
@@ -97,94 +95,87 @@ export default function Player({
     }
   };
 
-  const startPlayback = useCallback(() => {
+  const playCurrent = useCallback(() => {
     if (!playerInstance.current || !window.YT) return;
     try {
       playerInstance.current.mute();
       playerInstance.current.playVideo();
       playerInstance.current.setVolume(100);
-      if (playFallbackRef.current) clearTimeout(playFallbackRef.current);
-      playFallbackRef.current = setTimeout(() => {
-        try {
-          playerInstance.current.unMute();
-          playerInstance.current.playVideo();
-        } catch {}
-      }, 800);
+      setTimeout(() => {
+        try { playerInstance.current.unMute(); } catch {}
+      }, 1000);
     } catch {
       // retry silently
     }
   }, []);
 
+  const initPlayer = useCallback((videoId) => {
+    if (!mountedRef.current) return;
+
+    try {
+      playerInstance.current = new window.YT.Player('yt-player', {
+        height: '100%',
+        width: '100%',
+        videoId,
+        playerVars: {
+          autoplay: 1,
+          controls: 0,
+          modestbranding: 1,
+          rel: 0,
+          iv_load_policy: 3,
+          fs: 0,
+          disablekb: 1,
+          playsinline: 1,
+        },
+        events: {
+          onReady: () => {
+            if (!mountedRef.current) return;
+            const dur = playerInstance.current.getDuration();
+            onPlayerReady(dur);
+            setShowSpinner(false);
+            playCurrent();
+          },
+          onStateChange: (event) => {
+            if (!mountedRef.current) return;
+            if (event.data === window.YT.PlayerState.ENDED) {
+              onTrackEnd();
+            } else if (event.data === window.YT.PlayerState.PLAYING) {
+              setIsPlaying(true);
+              setShowSpinner(false);
+              try { playerInstance.current.unMute(); } catch {}
+              playerInstance.current.setVolume(100);
+            } else if (event.data === window.YT.PlayerState.PAUSED) {
+              setIsPlaying(false);
+            }
+          },
+        },
+      });
+    } catch {
+      console.error('YT Player init error');
+    }
+  }, [onPlayerReady, onTrackEnd, setIsPlaying, playCurrent]);
+
   useEffect(() => {
     if (!currentTrack?.id) return;
-
-    const init = () => {
-      if (playerInstance.current && typeof playerInstance.current.loadVideoById === 'function') {
-        currentVideoIdRef.current = currentTrack.id;
-        playerInstance.current.loadVideoById(currentTrack.id);
-        startPlayback();
-        return;
-      }
-
-      currentVideoIdRef.current = currentTrack.id;
-
-      try {
-        playerInstance.current = new window.YT.Player('yt-player', {
-          height: '100%',
-          width: '100%',
-          videoId: currentTrack.id,
-          playerVars: {
-            autoplay: 1,
-            controls: 0,
-            modestbranding: 1,
-            rel: 0,
-            iv_load_policy: 3,
-            fs: 0,
-            disablekb: 1,
-            playsinline: 1,
-          },
-          events: {
-            onReady: () => {
-              if (!mountedRef.current) return;
-              const dur = playerInstance.current.getDuration();
-              onPlayerReady(dur);
-              setShowSpinner(false);
-              startPlayback();
-            },
-            onStateChange: (event) => {
-              if (!mountedRef.current) return;
-              if (event.data === window.YT.PlayerState.ENDED) {
-                onTrackEnd();
-              } else if (event.data === window.YT.PlayerState.PLAYING) {
-                setIsPlaying(true);
-                setShowSpinner(false);
-                try { playerInstance.current.unMute(); } catch {}
-                playerInstance.current.setVolume(100);
-                if (playFallbackRef.current) {
-                  clearTimeout(playFallbackRef.current);
-                  playFallbackRef.current = null;
-                }
-              } else if (event.data === window.YT.PlayerState.PAUSED) {
-                setIsPlaying(false);
-              }
-            },
-          },
-        });
-      } catch {
-        console.error('YT Player init error');
-      }
-    };
 
     if (!window.YT) {
       const tag = document.createElement('script');
       tag.src = 'https://www.youtube.com/iframe_api';
       const firstScriptTag = document.getElementsByTagName('script')[0];
       firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-      window.onYouTubeIframeAPIReady = init;
-    } else {
-      init();
+      window.onYouTubeIframeAPIReady = () => {
+        initPlayer(currentTrack.id);
+      };
+    } else if (!playerInstance.current) {
+      initPlayer(currentTrack.id);
+    } else if (currentVideoIdRef.current !== currentTrack.id) {
+      currentVideoIdRef.current = currentTrack.id;
+      try {
+        playerInstance.current.loadVideoById(currentTrack.id);
+        playCurrent();
+      } catch {}
     }
-  }, [currentTrack?.id, onPlayerReady, onTrackEnd, setIsPlaying, startPlayback]);
+  }, [currentTrack?.id, initPlayer, playCurrent]);
 
   useEffect(() => {
     if (!playerInstance.current || !window.YT) return;
