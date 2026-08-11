@@ -59,6 +59,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong.' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Backend running on http://localhost:${PORT}`);
-});
+export default app;
+
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, () => {
+    console.log(`Backend running on http://localhost:${PORT}`);
+  });
+}
