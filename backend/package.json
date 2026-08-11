@@ -1,0 +1,17 @@
+{
+  "name": "raasta-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "express-rate-limit": "^7.2.0",
+    "googleapis": "^135.0.0",
+    "dotenv": "^16.4.5"
+  }
+}
