@@ -1,6 +1,5 @@
 import Background from './components/Background';
 import Time from './components/Time';
-import MusicLinks from './components/MusicLinks';
 import Branding from './components/Branding';
 import Player from './components/Player';
 import { usePlayer } from './hooks/usePlayer';
@@ -14,7 +13,6 @@ export default function App() {
 
       <header className="flex items-start justify-between z-10">
         <Time />
-        <MusicLinks />
       </header>
 
       <main className="flex-1 flex items-center justify-center z-10">

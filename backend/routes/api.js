@@ -31,7 +31,6 @@ router.get('/track/:index', async (req, res) => {
 
 router.get('/config', (req, res) => {
   res.json({
-    spotifyUrl: CONFIG.spotifyUrl,
     youtubeMusicUrl: CONFIG.youtubeMusicUrl,
     onlineCount: CONFIG.onlineCount,
   });

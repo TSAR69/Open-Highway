@@ -1,7 +1,25 @@
 import { useState, useEffect } from 'react';
 
 export default function OnlineStatus({ count }) {
-  const [online, setOnline] = useState(count);
+  const [online, setOnline] = useState(count || 28);
+
+  useEffect(() => {
+    if (typeof count === 'number') {
+      setOnline(count);
+      return;
+    }
+    fetch('/api/config')
+      .then((r) => {
+        if (!r.ok) throw new Error('Config failed');
+        return r.json();
+      })
+      .then((data) => {
+        if (data && typeof data.onlineCount === 'number') {
+          setOnline(data.onlineCount);
+        }
+      })
+      .catch(() => {});
+  }, [count]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -11,7 +29,7 @@ export default function OnlineStatus({ count }) {
       });
     }, 5000);
     return () => clearInterval(interval);
-  }, [count]);
+  }, []);
 
   return (
     <div className="flex items-center gap-2 text-sm font-light text-white/80">

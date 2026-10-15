@@ -62,6 +62,14 @@ export function usePlayer() {
     setPlayerReady(false);
   }, [playlist.length]);
 
+  const selectTrack = useCallback((index) => {
+    if (index < 0 || index >= playlist.length) return;
+    setCurrentIndex(index);
+    setCurrentTime(0);
+    setDuration(0);
+    setPlayerReady(false);
+  }, [playlist.length]);
+
   const togglePlay = useCallback(() => {
     setIsPlaying((prev) => !prev);
   }, []);
@@ -103,5 +111,6 @@ export function usePlayer() {
     onTimeUpdate,
     onTrackEnd,
     reload: loadPlaylist,
+    selectTrack,
   };
 }

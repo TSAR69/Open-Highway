@@ -18,7 +18,13 @@ export default function Time() {
   }, []);
 
   return (
-    <div className="text-sm font-semibold tracking-wide text-white/90 text-shadow">
+    <div
+      className="text-xs sm:text-sm font-medium tracking-widest text-white/90 text-shadow tabular-nums select-none"
+      style={{
+        fontFamily: 'ui-monospace, "SF Mono", Monaco, Menlo, Consolas, "Liberation Mono", "Courier New", monospace',
+        fontVariantNumeric: 'tabular-nums',
+      }}
+    >
       {time}
     </div>
   );

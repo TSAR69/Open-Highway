@@ -1,4 +1,9 @@
 node_modules
 dist
 .env
+.env.local
+.env.*.local
+backend/.env
 .DS_Store
+__pycache__/
+*.pyc
