@@ -413,6 +413,7 @@ export default function Player({
                       <button
                         key={pl.id}
                         onClick={() => {
+                          switchPlaylist(pl.id, pl.name);
                           setBrowsingPlaylistId(pl.id);
                           setBrowsingPlaylistName(pl.name);
                           setPanelView('tracks');

@@ -24,6 +24,10 @@ export function usePlayer() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Ref to always have current availablePlaylists without adding it to loadPlaylist deps
+  const availablePlaylistsRef = useRef(availablePlaylists);
+  availablePlaylistsRef.current = availablePlaylists;
+
   const currentTrack = playlist[currentIndex] || null;
 
   const resolvePlaylistName = useCallback((playlistId, playlists) => {
@@ -47,7 +51,7 @@ export function usePlayer() {
       setCurrentIndex(0);
       if (playlistId) {
         setCurrentPlaylistId(playlistId);
-        setCurrentPlaylistName(resolvePlaylistName(playlistId, availablePlaylists));
+        setCurrentPlaylistName(resolvePlaylistName(playlistId, availablePlaylistsRef.current));
       }
     } catch (err) {
       setError(err.message || 'Failed to load playlist');
