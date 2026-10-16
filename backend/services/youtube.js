@@ -1,18 +1,32 @@
-let cachedPlaylist = null;
-let cacheTimestamp = 0;
+const playlistCache = {};
 const CACHE_TTL = 5 * 60 * 1000;
 
-export async function getPlaylistData() {
-  const now = Date.now();
-  if (cachedPlaylist && now - cacheTimestamp < CACHE_TTL) {
-    return cachedPlaylist;
+export async function getPlaylistData(playlistId) {
+  const { CONFIG } = await import('../config.js');
+
+  if (!CONFIG.youtubeApiKey) {
+    throw new Error('YouTube API key is not configured on the server.');
   }
 
-  const { CONFIG } = await import('../config.js');
+  const id = playlistId || CONFIG.youtubePlaylistId;
+  if (!id) {
+    throw new Error('No playlist ID configured. Set YOUTUBE_PLAYLIST_ID or YOUTUBE_PLAYLISTS.');
+  }
+
+  // YouTube playlist IDs start with "PL" and contain alphanumeric characters, hyphens, and underscores.
+  if (!/^[A-Za-z0-9_-]{10,}$/.test(id)) {
+    throw new Error(`Invalid playlist ID format: ${id}`);
+  }
+
+  const now = Date.now();
+
+  if (playlistCache[id] && now - playlistCache[id].timestamp < CACHE_TTL) {
+    return playlistCache[id].data;
+  }
 
   const playlistUrl = new URL('https://www.googleapis.com/youtube/v3/playlists');
   playlistUrl.searchParams.set('part', 'snippet,contentDetails');
-  playlistUrl.searchParams.set('id', CONFIG.youtubePlaylistId);
+  playlistUrl.searchParams.set('id', id);
   playlistUrl.searchParams.set('key', CONFIG.youtubeApiKey);
 
   const playlistRes = await fetch(playlistUrl.toString());
@@ -28,7 +42,7 @@ export async function getPlaylistData() {
 
   const itemsUrl = new URL('https://www.googleapis.com/youtube/v3/playlistItems');
   itemsUrl.searchParams.set('part', 'snippet,contentDetails');
-  itemsUrl.searchParams.set('playlistId', CONFIG.youtubePlaylistId);
+  itemsUrl.searchParams.set('playlistId', id);
   itemsUrl.searchParams.set('maxResults', '50');
   itemsUrl.searchParams.set('key', CONFIG.youtubeApiKey);
 
@@ -48,19 +62,23 @@ export async function getPlaylistData() {
       thumbnail: item.snippet.thumbnails?.medium?.url || item.snippet.thumbnails?.default?.url || '',
     }));
 
-  cachedPlaylist = {
+  const playlistData = {
     title: playlist.snippet.title,
     description: playlist.snippet.description,
     tracks,
     totalTracks: tracks.length,
   };
-  cacheTimestamp = now;
 
-  return cachedPlaylist;
+  playlistCache[id] = {
+    data: playlistData,
+    timestamp: now,
+  };
+
+  return playlistData;
 }
 
-export async function getTrackAt(index) {
-  const playlist = await getPlaylistData();
+export async function getTrackAt(index, playlistId) {
+  const playlist = await getPlaylistData(playlistId);
   if (index < 0 || index >= playlist.tracks.length) {
     throw new Error('Track not found');
   }
