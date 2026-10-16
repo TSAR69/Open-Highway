@@ -63,6 +63,15 @@ export default function Player({
     };
   }, []);
 
+  // Reset player instance when loading so a fresh YouTube player is created
+  // after the player div remounts (e.g. when switching playlists).
+  useEffect(() => {
+    if (loading) {
+      playerInstance.current = null;
+      currentVideoIdRef.current = null;
+    }
+  }, [loading]);
+
   // Close playlist drop-up on click outside or Escape key
   useEffect(() => {
     if (!showPlaylist) return;
