@@ -13,6 +13,9 @@ function shuffleArray(array) {
 
 export function usePlayer() {
   const [playlist, setPlaylist] = useState([]);
+  const [availablePlaylists, setAvailablePlaylists] = useState([]);
+  const [currentPlaylistId, setCurrentPlaylistId] = useState(null);
+  const [currentPlaylistName, setCurrentPlaylistName] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -23,27 +26,74 @@ export function usePlayer() {
 
   const currentTrack = playlist[currentIndex] || null;
 
-  const loadPlaylist = useCallback(async () => {
+  const resolvePlaylistName = useCallback((playlistId, playlists) => {
+    if (!playlistId) return null;
+    const found = playlists.find((pl) => pl.id === playlistId);
+    return found ? found.name : null;
+  }, []);
+
+  const loadPlaylist = useCallback(async (playlistId = null) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await fetch(`${API_BASE}/playlist`).then((r) => {
-        if (!r.ok) throw new Error('Failed');
+      const url = playlistId ? `${API_BASE}/playlist?playlistId=${playlistId}` : `${API_BASE}/playlist`;
+      const data = await fetch(url).then((r) => {
+        if (!r.ok) throw new Error('Failed to load playlist');
         return r.json();
       });
       const tracks = data.tracks || [];
       const shuffled = shuffleArray(tracks);
       setPlaylist(shuffled);
       setCurrentIndex(0);
+      if (playlistId) {
+        setCurrentPlaylistId(playlistId);
+        setCurrentPlaylistName(resolvePlaylistName(playlistId, availablePlaylists));
+      }
     } catch (err) {
-      setError('Music is taking the long way.');
+      setError(err.message || 'Failed to load playlist');
     } finally {
       setLoading(false);
     }
+  }, [resolvePlaylistName]);
+
+  const switchPlaylist = useCallback(async (playlistId, playlistName) => {
+    setCurrentPlaylistId(playlistId);
+    setCurrentPlaylistName(playlistName || null);
+    await loadPlaylist(playlistId);
+  }, [loadPlaylist]);
+
+  const fetchPlaylistTracks = useCallback(async (playlistId) => {
+    const url = `${API_BASE}/playlist?playlistId=${playlistId}`;
+    const data = await fetch(url).then((r) => {
+      if (!r.ok) throw new Error('Failed to load playlist');
+      return r.json();
+    });
+    return data.tracks || [];
   }, []);
 
   useEffect(() => {
-    loadPlaylist();
+    const initPlayer = async () => {
+      try {
+        const playlistsData = await fetch(`${API_BASE}/playlists`).then((r) => {
+          if (!r.ok) throw new Error('Failed to load playlists');
+          return r.json();
+        });
+
+        const playlists = Object.entries(playlistsData).map(([name, id]) => ({ name, id }));
+        setAvailablePlaylists(playlists);
+
+        if (playlists.length > 0) {
+          await loadPlaylist(playlists[0].id);
+        } else {
+          await loadPlaylist();
+        }
+      } catch (err) {
+        console.error('Initialization error:', err);
+        setError('Unable to load playlists.');
+        setLoading(false);
+      }
+    };
+    initPlayer();
   }, [loadPlaylist]);
 
   const playNext = useCallback(() => {
@@ -93,6 +143,9 @@ export function usePlayer() {
 
   return {
     playlist,
+    availablePlaylists,
+    currentPlaylistId,
+    currentPlaylistName,
     currentTrack,
     currentIndex,
     isPlaying,
@@ -110,7 +163,9 @@ export function usePlayer() {
     onPlayerReady,
     onTimeUpdate,
     onTrackEnd,
-    reload: loadPlaylist,
+    reload: (id) => loadPlaylist(id),
     selectTrack,
+    switchPlaylist,
+    fetchPlaylistTracks,
   };
 }
